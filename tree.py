@@ -204,7 +204,7 @@ class Tree(cohort.Cohort):
                 oob_idxs.append(sample_idx)
 
         top_node = TrainingNode()
-        top_node.sample_idxs = [idx for idx in self.samples]
+        top_node.sample_idxs = [idx for idx in train_idxs]
         top_node.val = self.get_plurality_label(sample_idxs=top_node.sample_idxs)
         top_node.enropy = self.calc_entropy(sample_idxs=top_node.sample_idxs)
         top_node.depth = 0
@@ -215,7 +215,6 @@ class Tree(cohort.Cohort):
         for sample_idx in oob_idxs:
             oob_preds[sample_idx] = self.predict(self.samples[sample_idx])
         return oob_preds
-
 
     def predict(self, sample: cohort.Sample) -> int:
         node_idx = 0
