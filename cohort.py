@@ -20,7 +20,8 @@ class Cohort:
             if self.is_ftr_categorical[ftr_idx]:
                 cats = []
                 for sample_idx in self.samples:
-                    cats.append(self.samples[sample_idx].features[ftr_idx])
+                    if ftr_idx in self.samples[sample_idx].features:
+                        cats.append(self.samples[sample_idx].features[ftr_idx])
                 cats = list(set(cats))
                 n_cats = len(cats)
                 self.cat_ftr_groupings[ftr_idx] = {}
@@ -30,8 +31,8 @@ class Cohort:
                         for combo in itertools.combinations(cats, idraw):
                             self.cat_ftr_groupings[ftr_idx][grouping_idx] = list(combo)
                             grouping_idx += 1
-                    n_combos = math.comb(n_cats, int(n_cats)/2)
-                    for icombo, combo in enumerate(itertools.combinations(cats, int(n_cats)/2)):
+                    n_combos = math.comb(n_cats, int(n_cats/2))
+                    for icombo, combo in enumerate(itertools.combinations(cats, int(n_cats/2))):
                         if icombo < int(n_combos/2):
                             self.cat_ftr_groupings[ftr_idx][grouping_idx] = list(combo)
                             grouping_idx += 1
@@ -48,7 +49,8 @@ class Cohort:
             if not self.is_ftr_categorical[ftr_idx]:
                 ftr_vals = []
                 for sample_idx in self.samples:
-                    ftr_vals.append(self.samples[sample_idx].features[ftr_idx])
+                    if ftr_idx in self.samples[sample_idx].features:
+                        ftr_vals.append(self.samples[sample_idx].features[ftr_idx])
                 self.feature_threshs[ftr_idx] = []
                 for ibin in range(n_bins):
                     self.feature_threshs[ftr_idx].append(np.percentile(ftr_vals, 100*(ibin+1)/n_bins))

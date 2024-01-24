@@ -44,8 +44,8 @@ class Tree(cohort.Cohort):
         self.nodes: list[TrainingNode] = []
         self.use_ftr_idxs: list[int] = [idx for idx in self.is_ftr_categorical]
         self.nftrs_to_sample: int = int(math.sqrt(len(self.use_ftr_idxs)))
-        self.max_depth: int = 50
-        self.min_leaf_size: int = 3
+        self.max_depth: int = 100
+        self.min_leaf_size: int = 1
 
     def split_node(self, node_idx: int) -> None:
         # TODO: need stopping criteria: max depth, min_leaf_size
@@ -81,6 +81,8 @@ class Tree(cohort.Cohort):
             left_idxs = []
             right_idxs = []
             for sample_idx in self.nodes[node_idx].sample_idxs:
+                if not max_ftr_idx in self.samples[sample_idx].features:
+                    continue
                 if self.samples[sample_idx].features[max_ftr_idx] in self.cat_ftr_groupings[max_ftr_idx][max_group_idx]:
                     left_idxs.append(sample_idx)
                 else:
@@ -91,6 +93,8 @@ class Tree(cohort.Cohort):
             left_idxs = []
             right_idxs = []
             for sample_idx in self.nodes[node_idx].sample_idxs:
+                if not max_ftr_idx in self.samples[sample_idx].features:
+                    continue
                 if self.samples[sample_idx].features[max_ftr_idx] < max_thresh:
                     left_idxs.append(sample_idx)
                 else:
@@ -134,6 +138,8 @@ class Tree(cohort.Cohort):
         left_idxs = []
         right_idxs = []
         for sample_idx in self.nodes[node_idx].sample_idxs:
+            if not ftr_idx in self.samples[sample_idx].features:
+                continue
             if self.samples[sample_idx].features[ftr_idx] in self.cat_ftr_groupings[ftr_idx][group_idx]:
                 left_idxs.append(sample_idx)
             else:
@@ -151,6 +157,8 @@ class Tree(cohort.Cohort):
         left_idxs = []
         right_idxs = []
         for sample_idx in self.nodes[node_idx].sample_idxs:
+            if not ftr_idx in self.samples[sample_idx].features:
+                continue
             if self.samples[sample_idx].features[ftr_idx] < thresh:
                 left_idxs.append(sample_idx)
             else:
@@ -212,9 +220,11 @@ class Tree(cohort.Cohort):
         self.split_node(node_idx=0)
 
         oob_preds = {}
+        oob_svs = {}
         for sample_idx in oob_idxs:
             oob_preds[sample_idx] = self.predict(self.samples[sample_idx])
-        return oob_preds
+            oob_svs[sample_idx] = self.calc_shap_values(self.samples[sample_idx])
+        return oob_preds, oob_svs
 
     def predict(self, sample: cohort.Sample) -> int:
         node_idx = 0
@@ -313,16 +323,22 @@ def draw_ROC_curve(case_scores: list[float] = [], control_scores: list[float] = 
         draw_x.append(1.0-spec)
         draw_y.append(sens)
     
-    print(draw_x)
-    print(draw_y)
-    
     res = scipy.stats.mannwhitneyu(x=case_scores, y=control_scores)
     cles = res.statistic/(len(case_scores)*len(control_scores))
+
+    # CI for AUC: Hanley and McNeil (1982)
+    q1 = cles/(2-cles)
+    q2 = 2*cles**2/(1+cles)
+    n1 = len(case_scores)
+    n2 = len(control_scores)
+    se = ((cles*(1-cles) + (n1-1)*(q1-cles**2) + (n2-1)*(q2-cles**2))/(n1*n2))**0.5
+    ub = cles + 1.96*se
+    lb = cles - 1.96*se
 
     plt.figure()
     plt.plot(draw_x, draw_y, label='model')
     plt.legend()
-    plt.title('AUC: %.3f, MW-p: %.3f'%(cles, res.pvalue))
+    plt.title('AUC: %.3f [%.3f-%.3f], MW-p: %.3e'%(cles, lb, ub, res.pvalue))
     plt.xlabel('1-Specificity')
     plt.ylabel('Sensitivity')
     plt.tight_layout()
